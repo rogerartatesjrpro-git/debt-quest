@@ -274,7 +274,7 @@ function bossList(){
       }
     }
     dead = hp <= 0.5;
-    return { id: b.id, name, start, hp, note, dead };
+    return { id: b.id, name, start, hp, note, dead, optional: !!b.optional };
   });
 }
 function badgeOn(r){
@@ -286,7 +286,7 @@ function badgeOn(r){
     case "savings": return (state.savings || 0) >= r.min;
     case "perfect": return C.months.some(monthDone);
     case "streak": return bestStreak() >= r.min;
-    case "allBosses": return bosses.every(b => b.dead);
+    case "allBosses": return bosses.filter(b => !b.optional).every(b => b.dead);
     default: return false;
   }
 }
@@ -324,7 +324,7 @@ function render(){
   else if (nextM) { $("nextH").textContent = am.name + ": " + nextM.title; $("nextDetail").textContent = nextM.detail || ""; nb.hidden = false; nx.hidden = false; nx.textContent = "+" + nextM.xp + " XP"; nb.onclick = () => toggleMonth(am.key, nextM.id, true); }
   else {
     const boss = allQuests().find(q => q.later && !state.done[q.id]);
-    $("nextH").textContent = boss ? "This month is done. Next boss: " + boss.title : (bosses.every(b => b.dead) ? (C.finalMessage || "You're debt free.") : "This month is done. See you next payday.");
+    $("nextH").textContent = boss ? "This month is done. Next boss: " + boss.title : (bosses.filter(b => !b.optional).every(b => b.dead) ? (C.finalMessage || "You're debt free.") : "This month is done. See you next payday.");
     $("nextDetail").textContent = boss ? (boss.detail || "") : ""; nb.hidden = true; nx.hidden = true;
   }
 
@@ -437,7 +437,7 @@ function showSetup(){ $("appView").hidden = true; $("setupView").hidden = false;
 function applyCode(code, keepProgress){
   const d = decode(code);
   if (d.kind === "backup") {
-    if (!validPlan(d.obj.config)) throw new Error("This backup code has no valid plan in it.");
+    if (!d.obj || !validPlan(d.obj.config)) throw new Error("This backup code has no valid plan in it.");
     C = d.obj.config; state = normState(d.obj.state); save(K_CFG, C); save(K_STATE, state); return "Backup restored.";
   }
   if (!validPlan(d.obj)) throw new Error("This plan code is missing parts. Ask for a fresh one.");
