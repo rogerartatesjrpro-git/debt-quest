@@ -324,8 +324,11 @@ function render(){
   else if (nextM) { $("nextH").textContent = am.name + ": " + nextM.title; $("nextDetail").textContent = nextM.detail || ""; nb.hidden = false; nx.hidden = false; nx.textContent = "+" + nextM.xp + " XP"; nb.onclick = () => toggleMonth(am.key, nextM.id, true); }
   else {
     const boss = allQuests().find(q => q.later && !state.done[q.id]);
-    $("nextH").textContent = boss ? "This month is done. Next boss: " + boss.title : (bosses.filter(b => !b.optional).every(b => b.dead) ? (C.finalMessage || "You're debt free.") : "This month is done. See you next payday.");
-    $("nextDetail").textContent = boss ? (boss.detail || "") : ""; nb.hidden = true; nx.hidden = true;
+    const coreDone = bosses.filter(x => !x.optional).every(x => x.dead);
+    $("nextH").textContent = coreDone ? (C.finalMessage || "You're debt free.") : (boss ? "This month is done. Next boss: " + boss.title : "This month is done. See you next payday.");
+    $("nextDetail").textContent = boss ? (coreDone ? "Still open: " : "") + boss.title + (coreDone ? ". " : "") + (coreDone ? "" : "") + (coreDone ? (boss.detail || "") : (boss.detail || "")) : "";
+    if (!coreDone && boss) $("nextDetail").textContent = boss.detail || "";
+    nb.hidden = true; nx.hidden = true;
   }
 
   // bosses
