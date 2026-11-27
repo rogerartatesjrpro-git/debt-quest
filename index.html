@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Debt Quest</title>
+<meta name="description" content="A private, offline debt payoff tracker with quests, XP and boss fights. Your plan stays on your device.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171b2f" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Debt Quest">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>
+/* Layout: one phone-width column; sticky score bar, then next move, bosses, shield, quests, monthly ritual, badges, rules, settings. */
+:root{
+  --bg:#f3f4f8; --surface:#ffffff; --ink:#151a2e; --muted:#5d6480; --line:#dfe2ec;
+  --gold:#8a6100; --gold-soft:#fff3cf; --hp:#c8323c; --hp-soft:#fbe3e4;
+  --shield:#1d7f5c; --shield-soft:#dcf3ea; --accent:#2f3fb3; --accent-soft:#e6e9fb; --on-accent:#ffffff;
+  --display:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0e1120; --surface:#171b2f; --ink:#eef0f8; --muted:#9aa1bd; --line:#2a3050;
+  --gold:#f0bd3a; --gold-soft:#3a3016; --hp:#ff6b72; --hp-soft:#3b1d24;
+  --shield:#4fd1a1; --shield-soft:#163a30; --accent:#8b97ff; --accent-soft:#232a52; --on-accent:#0e1120; color-scheme:dark}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;padding-bottom:env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px;display:grid;gap:18px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+h2{font-size:20px;font-weight:800}
+.label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)}
+.score{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line);margin:0 calc(-1 * max(16px,env(safe-area-inset-right,0px))) 0 calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:calc(12px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px));display:grid;gap:8px}
+.score-top{display:flex;align-items:center;gap:12px}
+.lvl{width:46px;height:46px;border-radius:50%;background:var(--gold-soft);color:var(--gold);display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:20px;flex:none;border:2px solid var(--gold)}
+.score-text{flex:1;min-width:0}
+.score-text h1{font-size:18px;font-weight:800}
+.score-text .sub{font-size:13px;color:var(--muted)}
+.streak{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--gold);text-align:right;flex:none}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:99px;transition:width .6s ease}
+.xp>i{background:var(--gold)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:12px}
+.next{border:2px solid var(--accent);background:linear-gradient(180deg,var(--accent-soft),var(--surface) 70%)}
+.next h3{font-size:21px;font-weight:800}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{appearance:none;border:0;border-radius:12px;padding:12px 16px;font:600 16px var(--body);cursor:pointer;background:var(--accent);color:var(--on-accent);min-height:44px}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn.danger{background:transparent;color:var(--hp);border:1px solid var(--hp)}
+.btn:focus-visible,.chk:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.pill{display:inline-flex;align-items:center;font-size:13px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--gold-soft);color:var(--gold);font-family:var(--mono)}
+.boss{display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--line)}
+.boss:first-child{border-top:0;padding-top:0}
+.boss-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.boss-name{font-weight:600}
+.boss-hp{font-family:var(--mono);font-size:14px;color:var(--hp);white-space:nowrap}
+.hpbar>i{background:var(--hp)}
+.boss.dead .boss-name{text-decoration:line-through;color:var(--muted)}
+.boss.dead .boss-hp{color:var(--shield)}
+.boss-note{font-size:14px;color:var(--muted)}
+.total{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.total .big{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--hp);font-variant-numeric:tabular-nums}
+.shieldbar{position:relative;height:14px;overflow:visible}
+.shieldbar>i{background:var(--shield)}
+.floortick{position:absolute;top:-3px;bottom:-3px;width:3px;margin-left:-1px;background:var(--hp);border-radius:2px}
+.shield-marks{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted)}
+.field{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.field input{flex:1;min-width:0;font:600 18px var(--mono);padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+textarea{width:100%;min-height:110px;font:14px var(--mono);padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical}
+.warn{font-size:14px;font-weight:600;color:var(--hp)}
+.ok{font-size:14px;font-weight:600;color:var(--shield)}
+.status{font-size:14px;color:var(--muted)}
+.qgroup{display:grid;gap:2px}
+.quest{display:flex;gap:12px;align-items:flex-start;padding:12px 0;min-height:48px;border-top:1px solid var(--line)}
+.qgroup .label+.quest{border-top:0}
+.chk{appearance:none;-webkit-appearance:none;flex:none;width:30px;height:30px;border-radius:9px;border:2px solid var(--muted);background:var(--surface);cursor:pointer;display:grid;place-items:center;margin:0}
+.chk:checked{background:var(--shield);border-color:var(--shield)}
+.chk:checked::after{content:"";width:7px;height:13px;border:solid var(--on-accent);border-width:0 3px 3px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.quest-body{flex:1;min-width:0;display:grid;gap:2px;cursor:pointer;padding-block:3px}
+.quest-title{font-weight:600}
+.quest.done .quest-title{color:var(--muted);text-decoration:line-through}
+.quest-detail{font-size:14px;color:var(--muted)}
+.xpchip{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--gold);flex:none;margin-top:5px}
+details.month{border-top:1px solid var(--line)}
+details.month:first-child{border-top:0}
+details.month summary{list-style:none;display:flex;align-items:center;gap:10px;padding:12px 0;cursor:pointer;min-height:48px}
+details.month summary::-webkit-details-marker{display:none}
+.mname{font-weight:600;flex:1;min-width:0}
+.mstat{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.dots{display:flex;gap:4px}
+.dots i{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.dots i.on{background:var(--shield)}
+.mtarget{font-size:14px;color:var(--muted);padding-bottom:4px}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.badge{border:1px dashed var(--line);border-radius:12px;padding:12px;display:grid;gap:4px;opacity:.55}
+.badge.on{opacity:1;border:1px solid var(--gold);background:var(--gold-soft)}
+.badge b{font-family:var(--display);font-size:16px}
+.badge span{font-size:13px;color:var(--muted)}
+.rules{margin:0;padding-left:20px;display:grid;gap:6px}
+.foot{font-size:13px;color:var(--muted);text-align:center;margin:0}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,160%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:600;z-index:20;transition:transform .35s ease;max-width:calc(100% - 32px);text-align:center}
+.toast.show{transform:translate(-50%,0)}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:19;width:100%;height:100%}
+.hero{padding-top:calc(28px + env(safe-area-inset-top,0px));display:grid;gap:8px}
+.hero h1{font-size:30px;font-weight:800}
+.steps{margin:0;padding-left:20px;display:grid;gap:6px}
+.install{border-style:dashed}
+@media (prefers-reduced-motion: reduce){.bar>i,.toast{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<!-- setup view: shown until a plan code is loaded -->
+<div class="wrap" id="setupView" hidden>
+  <div class="hero">
+    <span class="label">Debt Quest</span>
+    <h1>Turn your payoff plan into a game</h1>
+    <p class="muted" style="margin:0">Quests, XP, levels and boss fights for each loan. Everything stays on this device. Nothing is sent anywhere.</p>
+  </div>
+  <section class="card install" id="installCard">
+    <h2>Install it first</h2>
+    <ol class="steps">
+      <li>In Safari, tap the <b>Share</b> button.</li>
+      <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+      <li>Open <b>Debt Quest</b> from your home screen and paste your plan code there.</li>
+    </ol>
+    <p class="status" style="margin:0">Your progress is saved inside the installed app, so load the plan there, not in Safari.</p>
+  </section>
+  <section class="card">
+    <h2>Load your plan</h2>
+    <label class="status" for="setupCode">Paste the plan code you were given (it starts with DQ1.).</label>
+    <textarea id="setupCode" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="DQ1.…"></textarea>
+    <div class="row"><button class="btn" id="setupBtn" type="button">Load plan</button></div>
+    <div id="setupMsg" class="status"></div>
+  </section>
+</div>
+
+<!-- main app -->
+<div class="wrap" id="appView" hidden>
+  <header class="score" aria-label="Your score">
+    <div class="score-top">
+      <div class="lvl" id="lvlNum">1</div>
+      <div class="score-text">
+        <h1 id="lvlTitle">Debt Quest</h1>
+        <div class="sub"><span id="xpText">0 XP</span> · <span id="lvlNext"></span></div>
+      </div>
+      <div class="streak" id="streak" title="Perfect months in a row">0 🔥</div>
+    </div>
+    <div class="bar xp" role="progressbar" aria-label="Progress to next level"><i id="xpBar" style="width:0%"></i></div>
+  </header>
+
+  <section class="card next" aria-labelledby="nextH">
+    <span class="label">Your next move</span>
+    <h3 id="nextH"></h3>
+    <div class="quest-detail" id="nextDetail"></div>
+    <div class="row"><button class="btn" id="nextBtn" type="button" hidden>Mark done</button><span class="pill" id="nextXp" hidden></span></div>
+  </section>
+
+  <section class="card" aria-labelledby="bossH">
+    <div class="total"><h2 id="bossH">Debt bosses</h2><span class="label">high-interest debt left</span></div>
+    <div class="total"><span class="big" id="totalHp">₱0</span><span class="muted" id="totalPct"></span></div>
+    <div class="bar hpbar" style="height:10px"><i id="totalBar" style="width:100%"></i></div>
+    <div id="bosses"></div>
+  </section>
+
+  <section class="card" aria-labelledby="shieldH">
+    <div class="total"><h2 id="shieldH">Savings shield</h2><span class="label" id="shieldGoal"></span></div>
+    <div class="field">
+      <label class="label" for="savingsIn" style="flex:none">Savings now ₱</label>
+      <input id="savingsIn" inputmode="numeric" autocomplete="off" placeholder="0">
+      <button class="btn" id="savingsBtn" type="button">Save</button>
+    </div>
+    <div class="bar shieldbar"><i id="shieldBar" style="width:0%"></i><span class="floortick" id="floorTick"></span></div>
+    <div class="shield-marks"><span>₱0</span><span id="shieldMid"></span><span id="shieldMax"></span></div>
+    <div id="shieldMsg" class="status"></div>
+  </section>
+
+  <section class="card" aria-labelledby="questH"><h2 id="questH">Quests</h2><div id="quests"></div></section>
+
+  <section class="card" aria-labelledby="monthH">
+    <h2 id="monthH">Monthly ritual</h2>
+    <div class="quest-detail" id="ritualNote"></div>
+    <div id="months"></div>
+  </section>
+
+  <section class="card" aria-labelledby="badgeH"><h2 id="badgeH">Badges</h2><div class="badges" id="badges"></div></section>
+
+  <section class="card" aria-labelledby="rulesH"><h2 id="rulesH">House rules</h2><ol class="rules" id="rules"></ol></section>
+
+  <section class="card" aria-labelledby="setH">
+    <h2 id="setH">Backup and plan</h2>
+    <div class="row">
+      <button class="btn ghost" id="backupBtn" type="button">Copy backup code</button>
+      <button class="btn ghost" id="updateToggle" type="button">Update plan or restore</button>
+    </div>
+    <div id="updateBox" hidden style="display:grid;gap:10px">
+      <label class="status" for="updateCode">Paste a new plan code (your ticks and savings are kept) or a backup code (replaces everything).</label>
+      <textarea id="updateCode" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+      <div class="row"><button class="btn" id="updateBtn" type="button">Apply code</button></div>
+    </div>
+    <textarea id="backupOut" readonly hidden aria-label="Backup code"></textarea>
+    <div id="setMsg" class="status"></div>
+    <div class="row"><button class="btn danger" id="resetBtn" type="button">Erase everything</button></div>
+    <div id="resetConfirm" class="row" hidden><span class="warn">Erase your plan and all progress on this device?</span><button class="btn danger" id="resetYes" type="button">Yes, erase</button><button class="btn ghost" id="resetNo" type="button">Cancel</button></div>
+  </section>
+
+  <p class="foot"><span id="footer"></span><br><span id="saveStatus"></span></p>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const peso = n => "₱" + Math.round(n).toLocaleString("en-PH");
+const pesoK = n => n >= 1e6 ? "₱" + (n/1e6).toFixed(2).replace(/\.?0+$/,"") + "M" : "₱" + Math.round(n/1000) + "K";
+function el(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+/* ---------- storage ---------- */
+const K_CFG = "dq-config", K_STATE = "dq-state";
+function load(k){ try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch(e){ return null; } }
+function save(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } }
+function normState(d){ return { done: (d && d.done && typeof d.done === "object") ? d.done : {}, months: (d && d.months && typeof d.months === "object") ? d.months : {}, savings: d && typeof d.savings === "number" ? d.savings : null }; }
+
+/* ---------- codes ---------- */
+function encode(obj, prefix){ const bytes = new TextEncoder().encode(JSON.stringify(obj)); let bin = ""; bytes.forEach(b => bin += String.fromCharCode(b)); return prefix + btoa(bin); }
+function decode(code){
+  const c = String(code || "").replace(/\s+/g, "");
+  const m = c.match(/^(DQ1|DQB1)\.(.+)$/);
+  if (!m) throw new Error("That doesn't look like a Debt Quest code. It should start with DQ1. or DQB1.");
+  let obj;
+  try { const bin = atob(m[2]); const bytes = Uint8Array.from(bin, ch => ch.charCodeAt(0)); obj = JSON.parse(new TextDecoder().decode(bytes)); }
+  catch(e){ throw new Error("The code is incomplete or damaged. Copy the whole code and try again."); }
+  return { kind: m[1] === "DQB1" ? "backup" : "plan", obj };
+}
+function validPlan(p){
+  return p && p.v === 1 && Array.isArray(p.bosses) && Array.isArray(p.quests) && Array.isArray(p.monthTasks) && Array.isArray(p.months) && Array.isArray(p.levels) && p.levels.length && Array.isArray(p.badges);
+}
+
+let C = null, state = normState(null);
+
+/* ---------- engine ---------- */
+const allQuests = () => C.quests.flatMap(g => g.items);
+const tasksFor = m => C.monthTasks.filter(t => !t.flag || (m.flags || []).includes(t.flag));
+const mstate = m => state.months[m.key] || {};
+const monthDone = m => tasksFor(m).every(t => mstate(m)[t.id]);
+const hasAny = m => Object.keys(mstate(m)).some(k => mstate(m)[k]);
+const taskCount = id => C.months.filter(m => tasksFor(m).some(t => t.id === id) && mstate(m)[id]).length;
+function bestStreak(){ let best = 0, run = 0; C.months.forEach(m => { if (monthDone(m)) { run++; best = Math.max(best, run); } else run = 0; }); return best; }
+function streak(){ let cur = 0; for (let i = C.months.length-1; i >= 0; i--) { const m = C.months[i]; if (!hasAny(m) && cur === 0) continue; if (monthDone(m)) cur++; else break; } return cur; }
+function bossList(){
+  return C.bosses.map(b => {
+    let name = b.name, start = b.start, hp = 0, note = b.note || "", dead = false;
+    if (b.type === "fixed") { hp = state.done[b.defeatQuest] ? 0 : b.start; }
+    else if (b.type === "amort") {
+      if (state.done[b.defeatQuest]) hp = 0;
+      else { let bal = b.start; for (let i = 0; i < taskCount(b.payTask); i++) bal = bal*(1+b.apr/12) - b.pay; hp = Math.max(0, bal); }
+    } else if (b.type === "schedule") {
+      const active = !!state.done[b.activeQuest];
+      if (!active) { name = b.preName || b.name; start = b.preStart; hp = b.preStart; note = b.preNote || ""; }
+      else {
+        const paid = Math.min(taskCount(b.payTask), b.n), pay = b.principal*b.rate/(1-Math.pow(1+b.rate,-b.n));
+        let bal = b.principal; for (let i = 0; i < paid; i++) bal = bal*(1+b.rate) - pay;
+        start = b.principal; hp = paid >= b.n ? 0 : Math.max(0, bal); note = (b.note || "").replace("{paid}", paid);
+      }
+    }
+    dead = hp <= 0.5;
+    return { id: b.id, name, start, hp, note, dead };
+  });
+}
+function badgeOn(r){
+  const bosses = bossList();
+  switch (r && r.type) {
+    case "anyQuest": return allQuests().some(q => state.done[q.id]);
+    case "group": return !!C.quests[r.index] && C.quests[r.index].items.every(q => state.done[q.id]);
+    case "boss": { const b = bosses.find(x => x.id === r.id); return !!b && b.dead; }
+    case "savings": return (state.savings || 0) >= r.min;
+    case "perfect": return C.months.some(monthDone);
+    case "streak": return bestStreak() >= r.min;
+    case "allBosses": return bosses.every(b => b.dead);
+    default: return false;
+  }
+}
+const badges = () => C.badges.map(b => Object.assign({}, b, { on: badgeOn(b.rule) }));
+function xpTotal(){
+  let xp = 0;
+  allQuests().forEach(q => { if (state.done[q.id]) xp += q.xp || 0; });
+  C.months.forEach(m => { tasksFor(m).forEach(t => { if (mstate(m)[t.id]) xp += t.xp || 0; }); if (monthDone(m)) xp += C.perfectBonus || 0; });
+  badges().forEach(b => { if (b.on) xp += b.xp || 0; });
+  return xp;
+}
+function level(xp){ let i = 0; C.levels.forEach((l,j) => { if (xp >= l.xp) i = j; }); return i; }
+function activeMonth(){
+  const d = new Date(), ck = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+  return C.months.find(m => m.key === ck) || (ck < C.months[0].key ? C.months[0] : C.months[C.months.length-1]);
+}
+
+/* ---------- render ---------- */
+function render(){
+  const xp = xpTotal(), li = level(xp), L = C.levels[li], N = C.levels[li+1];
+  document.title = C.title || "Debt Quest";
+  $("lvlNum").textContent = li+1;
+  $("lvlTitle").textContent = "Level " + (li+1) + ": " + L.title;
+  $("xpText").textContent = xp.toLocaleString() + " XP";
+  $("lvlNext").textContent = N ? (N.xp - xp) + " XP to " + N.title : "Max level";
+  $("xpBar").style.width = (N ? Math.min(100, (xp - L.xp)/(N.xp - L.xp)*100) : 100) + "%";
+  $("streak").textContent = streak() + " 🔥";
+
+  // next move
+  const nb = $("nextBtn"), nx = $("nextXp"), am = activeMonth(), ams = mstate(am);
+  const nextQ = allQuests().find(q => !q.later && !state.done[q.id]);
+  const nextM = tasksFor(am).find(t => !ams[t.id]);
+  const bosses = bossList();
+  if (nextQ) { $("nextH").textContent = nextQ.title; $("nextDetail").textContent = nextQ.detail || ""; nb.hidden = false; nx.hidden = false; nx.textContent = "+" + nextQ.xp + " XP"; nb.onclick = () => toggleQuest(nextQ.id, true); }
+  else if (nextM) { $("nextH").textContent = am.name + ": " + nextM.title; $("nextDetail").textContent = nextM.detail || ""; nb.hidden = false; nx.hidden = false; nx.textContent = "+" + nextM.xp + " XP"; nb.onclick = () => toggleMonth(am.key, nextM.id, true); }
+  else {
+    const boss = allQuests().find(q => q.later && !state.done[q.id]);
+    $("nextH").textContent = boss ? "This month is done. Next boss: " + boss.title : (bosses.every(b => b.dead) ? (C.finalMessage || "You're debt free.") : "This month is done. See you next payday.");
+    $("nextDetail").textContent = boss ? (boss.detail || "") : ""; nb.hidden = true; nx.hidden = true;
+  }
+
+  // bosses
+  const host = $("bosses"); host.textContent = "";
+  let tot = 0, totStart = 0;
+  bosses.forEach(b => {
+    tot += b.hp; totStart += b.start;
+    const d = el("div", "boss" + (b.dead ? " dead" : "")), h = el("div","boss-head");
+    h.append(el("span","boss-name",b.name), el("span","boss-hp", b.dead ? "Defeated" : peso(b.hp)));
+    const bar = el("div","bar hpbar"), i = el("i"); i.style.width = (b.start ? b.hp/b.start*100 : 0) + "%"; bar.append(i);
+    d.append(h, bar); if (b.note) d.append(el("div","boss-note", b.note)); host.append(d);
+  });
+  $("totalHp").textContent = peso(tot);
+  const pct = totStart ? Math.max(0, Math.min(100, tot/totStart*100)) : 0;
+  $("totalBar").style.width = pct + "%";
+  $("totalPct").textContent = Math.round(100 - pct) + "% defeated";
+
+  // shield
+  const sv = state.savings, floor = C.floor || 0, tgt = am.target || floor, max = Math.max(tgt, floor, sv || 0) * 1.1 || 1;
+  $("shieldGoal").textContent = am.name.split(" ")[0] + " target " + pesoK(tgt);
+  $("shieldBar").style.width = ((sv || 0)/max*100) + "%";
+  $("floorTick").style.left = (floor/max*100) + "%";
+  $("shieldMid").textContent = "Red line: " + pesoK(floor) + " floor"; $("shieldMax").textContent = pesoK(max);
+  if (document.activeElement !== $("savingsIn")) $("savingsIn").value = sv != null ? Math.round(sv).toLocaleString("en-PH") : "";
+  const msg = $("shieldMsg");
+  if (sv == null) { msg.className = "status"; msg.textContent = "Enter your savings balance after each payday."; }
+  else if (sv < floor) { msg.className = "warn"; msg.textContent = peso(floor - sv) + " below the " + pesoK(floor) + " floor. No early payoffs until it's back up."; }
+  else if (sv >= tgt) { msg.className = "ok"; msg.textContent = "On target for " + am.name + ". " + peso(sv - floor) + " available above the floor."; }
+  else { msg.className = "status"; msg.textContent = peso(tgt - sv) + " to go for " + am.name + "'s target. " + peso(sv - floor) + " above the floor."; }
+
+  // quests
+  const qh = $("quests"); qh.textContent = "";
+  C.quests.forEach(g => { const gd = el("div","qgroup"); gd.append(el("span","label",g.group)); g.items.forEach(q => gd.append(questRow("q_"+q.id, q.title, q.detail, q.xp, !!state.done[q.id], v => toggleQuest(q.id, v)))); qh.append(gd); });
+
+  // months
+  $("ritualNote").textContent = C.ritualNote || "";
+  const mh = $("months"), openKeys = new Set([...mh.querySelectorAll("details[open]")].map(d => d.dataset.key));
+  const firstRender = !mh.childElementCount; mh.textContent = "";
+  C.months.forEach(m => {
+    const s = mstate(m), tasks = tasksFor(m), det = el("details","month"); det.dataset.key = m.key;
+    det.open = firstRender ? m.key === am.key : openKeys.has(m.key);
+    const sum = el("summary"), dots = el("div","dots"); tasks.forEach(t => dots.append(el("i", s[t.id] ? "on" : "")));
+    sum.append(el("span","mname", m.name), dots, el("span","mstat", monthDone(m) ? "Perfect" : tasks.filter(t => s[t.id]).length + "/" + tasks.length));
+    det.append(sum, el("div","mtarget", "Savings target by month end: " + pesoK(m.target || 0) + (m.note ? ". " + m.note : "")));
+    tasks.forEach(t => det.append(questRow("m_"+m.key+"_"+t.id, t.title, t.detail, t.xp, !!s[t.id], v => toggleMonth(m.key, t.id, v))));
+    mh.append(det);
+  });
+
+  // badges + rules
+  const bh = $("badges"); bh.textContent = "";
+  badges().forEach(b => { const d = el("div","badge" + (b.on ? " on" : "")); d.append(el("b",null,b.name), el("span",null,b.desc + (b.xp ? " · +" + b.xp + " XP" : ""))); bh.append(d); });
+  const rl = $("rules"); rl.textContent = ""; (C.rules || []).forEach(r => rl.append(el("li",null,r)));
+  $("footer").textContent = C.footer || "";
+}
+function questRow(id, title, detail, xp, done, onChange){
+  const row = el("div","quest" + (done ? " done" : ""));
+  const c = document.createElement("input"); c.type = "checkbox"; c.className = "chk"; c.id = "c_" + id.replace(/[^\w-]/g,"_"); c.checked = done;
+  c.addEventListener("change", () => onChange(c.checked));
+  const body = el("label","quest-body"); body.htmlFor = c.id;
+  body.append(el("span","quest-title",title)); if (detail) body.append(el("span","quest-detail",detail));
+  row.append(c, body, el("span","xpchip","+" + xp));
+  return row;
+}
+
+/* ---------- actions ---------- */
+function persist(){ $("saveStatus").textContent = save(K_STATE, state) ? "Saved on this device." : "Couldn't save. Check that the device isn't in private browsing."; }
+function snap(){ return { lvl: level(xpTotal()), badges: badges().filter(b => b.on).map(b => b.id), bosses: bossList().filter(b => b.dead).map(b => b.id), perfect: C.months.filter(monthDone).length }; }
+function afterChange(before, gained){
+  const after = snap();
+  const newBoss = after.bosses.find(b => !before.bosses.includes(b));
+  const newBadge = badges().find(b => b.on && !before.badges.includes(b.id));
+  let celebrated = true;
+  if (newBoss) celebrate(bossList().find(x => x.id === newBoss).name + " defeated!", 220);
+  else if (after.lvl > before.lvl) celebrate("Level up: " + C.levels[after.lvl].title, 160);
+  else if (newBadge) celebrate("Badge: " + newBadge.name, 120);
+  else if (after.perfect > before.perfect) celebrate("Perfect month! +" + (C.perfectBonus || 0) + " XP", 100);
+  else { celebrated = false; if (gained) toast("+" + gained + " XP"); }
+  render(); persist(); return celebrated;
+}
+function toggleQuest(id, v){ const before = snap(), q = allQuests().find(x => x.id === id); if (v) state.done[id] = new Date().toISOString(); else delete state.done[id]; afterChange(before, v ? q.xp : 0); }
+function toggleMonth(key, tid, v){ const before = snap(), s = Object.assign({}, state.months[key] || {}); if (v) s[tid] = new Date().toISOString(); else delete s[tid]; state.months = Object.assign({}, state.months, {[key]: s}); const t = C.monthTasks.find(x => x.id === tid); afterChange(before, v ? (t.xp || 0) : 0); }
+function saveSavings(){
+  const raw = $("savingsIn").value.replace(/[^\d.]/g, ""), n = raw === "" ? null : Number(raw);
+  if (n != null && !isFinite(n)) { toast("Enter a number, like 718000"); return; }
+  if (n === state.savings) return;
+  const before = snap(); state.savings = n; $("savingsIn").blur();
+  if (!afterChange(before, 0) && n != null) toast("Savings updated: " + peso(n));
+}
+
+/* ---------- toast + confetti ---------- */
+let tt;
+function toast(t){ const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("show"), 2200); }
+const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function celebrate(text, count){
+  toast(text);
+  if (navigator.vibrate) { try { navigator.vibrate(30); } catch(e){} }
+  if (reduce) return;
+  const cv = $("fx"), ctx = cv.getContext("2d"), dpr = window.devicePixelRatio || 1;
+  cv.width = innerWidth*dpr; cv.height = innerHeight*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  const cs = getComputedStyle(document.documentElement), cols = ["--gold","--shield","--accent","--hp"].map(v => cs.getPropertyValue(v).trim() || "#c90");
+  const ps = Array.from({length:count}, () => ({x:innerWidth/2, y:innerHeight*0.35, vx:(Math.random()-0.5)*12, vy:Math.random()*-12-4, r:Math.random()*6+3, c:cols[Math.floor(Math.random()*cols.length)], a:Math.random()*6}));
+  let f = 0;
+  (function tick(){ ctx.clearRect(0,0,innerWidth,innerHeight); ps.forEach(p => { p.vy += 0.35; p.x += p.vx; p.y += p.vy; p.a += 0.2; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.a); ctx.fillStyle = p.c; ctx.fillRect(-p.r/2,-p.r/4,p.r,p.r/2); ctx.restore(); }); if (++f < 110) requestAnimationFrame(tick); else ctx.clearRect(0,0,innerWidth,innerHeight); })();
+}
+
+/* ---------- setup, backup, update ---------- */
+function showApp(){ $("setupView").hidden = true; $("appView").hidden = false; render(); }
+function showSetup(){ $("appView").hidden = true; $("setupView").hidden = false; const standalone = window.navigator.standalone || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches); $("installCard").hidden = !!standalone; }
+function applyCode(code, keepProgress){
+  const d = decode(code);
+  if (d.kind === "backup") {
+    if (!validPlan(d.obj.config)) throw new Error("This backup code has no valid plan in it.");
+    C = d.obj.config; state = normState(d.obj.state); save(K_CFG, C); save(K_STATE, state); return "Backup restored.";
+  }
+  if (!validPlan(d.obj)) throw new Error("This plan code is missing parts. Ask for a fresh one.");
+  C = d.obj; if (!keepProgress) state = normState(null); save(K_CFG, C); save(K_STATE, state);
+  return keepProgress ? "Plan updated. Your ticks and savings were kept." : "Plan loaded.";
+}
+$("setupBtn").addEventListener("click", () => { try { applyCode($("setupCode").value, false); $("setupCode").value = ""; showApp(); celebrate("Plan loaded. Let's go!", 120); } catch(e){ $("setupMsg").className = "warn"; $("setupMsg").textContent = e.message; } });
+$("savingsBtn").addEventListener("click", saveSavings);
+$("savingsIn").addEventListener("keydown", e => { if (e.key === "Enter") saveSavings(); });
+$("updateToggle").addEventListener("click", () => { $("updateBox").hidden = !$("updateBox").hidden; });
+$("updateBtn").addEventListener("click", () => { try { const m = applyCode($("updateCode").value, true); $("updateCode").value = ""; $("updateBox").hidden = true; $("setMsg").className = "ok"; $("setMsg").textContent = m; render(); } catch(e){ $("setMsg").className = "warn"; $("setMsg").textContent = e.message; } });
+$("backupBtn").addEventListener("click", () => {
+  const code = encode({config: C, state}, "DQB1."), out = $("backupOut");
+  out.value = code; out.hidden = false;
+  const done = () => { $("setMsg").className = "ok"; $("setMsg").textContent = "Backup code copied. Paste it somewhere safe, like your Notes."; };
+  const fallback = () => { out.focus(); out.select(); $("setMsg").className = "status"; $("setMsg").textContent = "Select the code above and copy it."; };
+  try { navigator.clipboard.writeText(code).then(done, fallback); } catch(e){ fallback(); }
+});
+$("resetBtn").addEventListener("click", () => { $("resetConfirm").hidden = false; });
+$("resetNo").addEventListener("click", () => { $("resetConfirm").hidden = true; });
+$("resetYes").addEventListener("click", () => { try { localStorage.removeItem(K_CFG); localStorage.removeItem(K_STATE); } catch(e){} C = null; state = normState(null); $("resetConfirm").hidden = true; showSetup(); });
+
+/* ---------- boot ---------- */
+const cfg = load(K_CFG);
+if (validPlan(cfg)) { C = cfg; state = normState(load(K_STATE)); showApp(); $("saveStatus").textContent = "Saved on this device."; }
+else showSetup();
+if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(() => {}); }
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); }); }
+})();
+</script>
+</body>
+</html>
